@@ -18,7 +18,7 @@ const Footer = () => {
         <Text>&copy; {new Date().getFullYear()} Wish CRO</Text>
         <Spacer />
         <Link
-          href="https://discord.com/invite/wqNvMatq"
+          href="https://discord.gg/bQ8z8sDHw8"
           target="_blank"
           rel="noopener noreferrer"
           mr={2}
