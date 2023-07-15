@@ -314,7 +314,7 @@ export default function WishMint() {
       </div>
 
       <img
-        src="/logo.png"
+        src="/images/Logo.Jpeg"
         alt=" Logo"
         width={135}
         className={styles.buttonGapTop}
