@@ -41,7 +41,7 @@ export default function ConnectWallet2() {
       textAlign={"center"}
       as={ConnectWallet}
       btnTitle="Connect To WishCro"
-      modalTitle={"Welcome to Steakhouse Dapps."}
+      modalTitle={"Welcome to Wish Cro. Please Connect."}
       detailsBtn={() => {
         return (
           <Box
