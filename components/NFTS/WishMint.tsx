@@ -12,7 +12,7 @@ import {
 import { BigNumber, utils } from "ethers";
 import { useMemo, useState } from "react";
 import { contractConst } from "../../cost/parameters";
-import styles from "../styles/Theme.module.css";
+import styles from "../../styles/Theme.module.css";
 import { parseIneligibility } from "../../utils/parseIneligibility";
 
 export default function WishMint() {
