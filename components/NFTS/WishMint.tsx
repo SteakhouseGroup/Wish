@@ -1,18 +1,4 @@
 import {
-  Box,
-  Flex,
-  Text,
-  Button,
-  Image,
-  SimpleGrid,
-  ButtonGroup,
-  Stack,
-  useToast,
-  Heading,
-} from "@chakra-ui/react";
-
-import { FaPlus, FaMinus } from "react-icons/fa";
-import {
   useActiveClaimConditionForWallet,
   useAddress,
   useClaimConditions,
@@ -21,57 +7,31 @@ import {
   useContract,
   useContractMetadata,
   useTotalCirculatingSupply,
-  useUnclaimedNFTSupply,
   Web3Button,
 } from "@thirdweb-dev/react";
+import { BigNumber, utils } from "ethers";
 import { useMemo, useState } from "react";
-import { BigNumber, ethers, utils } from "ethers";
-import { parseIneligibility } from "../../utils/parseIneligibility";
 import { contractConst } from "../../cost/parameters";
+import styles from "../styles/NFT.module.css";
+import { parseIneligibility } from "../../utils/parseIneligibility";
 
 export default function WishMint() {
   const address = useAddress();
-  const tokenId = "5";
-  const toast = useToast();
-  const [ADLoading, setADLoading] = useState(false);
-
-  const handleSuccess = () => {
-    toast({
-      title: "NFT Mint successful",
-      status: "success",
-      duration: 5000,
-      isClosable: true,
-    });
-  };
-
-  const handleError = () => {
-    toast({
-      title:
-        "Something went wrong whilst trying to mint your NFT, if this wasnt you please try again. If the error persists contact us on discord.",
-      status: "error",
-      duration: 5000,
-      isClosable: true,
-    });
-  };
-
-  const contractAddress = contractConst;
-  const contractQuery = useContract(contractAddress);
-  const contractMetadata = useContractMetadata(contractQuery.contract);
-
+  const myEditionDropContractAddress = contractConst;
+  const tokenId = "0";
   const [quantity, setQuantity] = useState(1);
-  const claimConditions = useClaimConditions(contractQuery.contract);
+  const { contract: editionDrop } = useContract(myEditionDropContractAddress);
+  const { data: contractMetadata } = useContractMetadata(editionDrop);
+
+  const claimConditions = useClaimConditions(editionDrop);
   const activeClaimCondition = useActiveClaimConditionForWallet(
-    contractQuery.contract,
+    editionDrop,
     address,
     tokenId
   );
-  const claimerProofs = useClaimerProofs(
-    contractQuery.contract,
-    address || "",
-    tokenId
-  );
+  const claimerProofs = useClaimerProofs(editionDrop, address || "", tokenId);
   const claimIneligibilityReasons = useClaimIneligibilityReasons(
-    contractQuery.contract,
+    editionDrop,
     {
       quantity,
       walletAddress: address || "",
@@ -79,11 +39,7 @@ export default function WishMint() {
     tokenId
   );
 
-  const unclaimedSupply = useUnclaimedNFTSupply(contractQuery.contract);
-  const claimedSupply2 = useTotalCirculatingSupply(
-    contractQuery.contract,
-    tokenId
-  );
+  const claimedSupply = useTotalCirculatingSupply(editionDrop, tokenId);
 
   const totalAvailableSupply = useMemo(() => {
     try {
@@ -94,18 +50,16 @@ export default function WishMint() {
   }, [activeClaimCondition.data?.availableSupply]);
 
   const numberClaimed = useMemo(() => {
-    return BigNumber.from(claimedSupply2.data || 0).toString();
-  }, [claimedSupply2]);
+    return BigNumber.from(claimedSupply.data || 0).toString();
+  }, [claimedSupply]);
 
   const numberTotal = useMemo(() => {
-    const n = totalAvailableSupply.add(
-      BigNumber.from(claimedSupply2.data || 0)
-    );
+    const n = totalAvailableSupply.add(BigNumber.from(claimedSupply.data || 0));
     if (n.gte(1_000_000)) {
       return "";
     }
     return n.toString();
-  }, [totalAvailableSupply, claimedSupply2]);
+  }, [totalAvailableSupply, claimedSupply]);
 
   const priceToMint = useMemo(() => {
     const bnPrice = BigNumber.from(
@@ -213,24 +167,17 @@ export default function WishMint() {
 
   const isLoading = useMemo(() => {
     return (
-      activeClaimCondition.isLoading ||
-      claimedSupply2.isLoading ||
-      !contractQuery.contract
+      activeClaimCondition.isLoading || claimedSupply.isLoading || !editionDrop
     );
-  }, [
-    activeClaimCondition.isLoading,
-    contractQuery.contract,
-    claimedSupply2.isLoading,
-  ]);
+  }, [activeClaimCondition.isLoading, editionDrop, claimedSupply.isLoading]);
 
   const buttonLoading = useMemo(
     () => isLoading || claimIneligibilityReasons.isLoading,
     [claimIneligibilityReasons.isLoading, isLoading]
   );
-
   const buttonText = useMemo(() => {
     if (isSoldOut) {
-      return "Not Available To Mint";
+      return "Sold Out";
     }
 
     if (canClaim) {
@@ -240,7 +187,7 @@ export default function WishMint() {
       if (pricePerToken.eq(0)) {
         return "Mint (Free)";
       }
-      return `Mint ${quantity} NFT's for (${priceToMint})`;
+      return `Mint (${priceToMint})`;
     }
     if (claimIneligibilityReasons.data?.length) {
       return parseIneligibility(claimIneligibilityReasons.data, quantity);
@@ -249,7 +196,7 @@ export default function WishMint() {
       return "Checking eligibility...";
     }
 
-    return "Minting not available";
+    return "Claiming not available";
   }, [
     isSoldOut,
     canClaim,
@@ -260,190 +207,118 @@ export default function WishMint() {
     quantity,
   ]);
 
-  const dropNotReady = useMemo(
-    () =>
-      claimConditions.data?.length === 0 ||
-      claimConditions.data?.every((cc) => cc.maxClaimableSupply === "0"),
-    [claimConditions.data]
-  );
-
-  const dropStartingSoon = useMemo(
-    () =>
-      (claimConditions.data &&
-        claimConditions.data.length > 0 &&
-        activeClaimCondition.isError) ||
-      (activeClaimCondition.data &&
-        activeClaimCondition.data.startTime > new Date()),
-    [
-      activeClaimCondition.data,
-      activeClaimCondition.isError,
-      claimConditions.data,
-    ]
-  );
-
-  const currentDate = new Date();
-  const targetDate = new Date("2023-07-15T23:00:00Z");
-
   return (
-    <div>
-      <Flex
-        minHeight="80vh"
-        width="100%"
-        alignItems="center"
-        justifyContent="center"
-        flexDirection={{ base: "column", md: "row" }}
-      >
-        <SimpleGrid h={5} />
+    <div className={styles.container}>
+      <div className={styles.mintInfoContainer}>
+        {isLoading ? (
+          <p>Loading...</p>
+        ) : (
+          <>
+            <div className={styles.infoSide}>
+              {/* Title of your NFT Collection */}
+              <h1>{contractMetadata?.name}</h1>
+              {/* Description of your NFT Collection */}
+              <p className={styles.description}>
+                {contractMetadata?.description}
+              </p>
+            </div>
 
-        <Box
-          width={360}
-          height={360}
-          p={6}
-          bg="white"
-          borderRadius="lg"
-          boxShadow="xl"
-        >
-          <Image src={contractMetadata.data?.image} borderRadius={"2xl"} />
-        </Box>
-        <SimpleGrid w={20} h={10} />
-        <Box>
-          <Box
-            width={{ base: 360, md: 800 }}
-            p={6}
-            borderRadius="lg"
-            boxShadow="xl"
-            position="relative"
-            overflow="hidden"
-            bgImage={"gold"}
-          >
-            <Text
-              fontSize="5xl"
-              mb={4}
-              textAlign={{ base: "center", md: "left" }}
-              textColor={"Black"}
-              fontWeight={"bold"}
-            >
-              {contractMetadata.data?.name}
-            </Text>
-            <Text
-              fontSize="xl"
-              mb={4}
-              textAlign={{ base: "center", md: "left" }}
-              fontWeight={"bold"}
-            ></Text>
-            <Text
-              fontSize="xl"
-              mb={4}
-              textAlign={{ base: "center", md: "left" }}
-              fontWeight={"bold"}
-            ></Text>
-            {currentDate.getTime() < targetDate.getTime() ? (
-              <Heading fontSize={"md"} mb="4">
-                This drop is not ready to be minted yet. <br /> Allowlist starts
-                at 7pm EST on the 15th of July.
-              </Heading>
-            ) : (
-              <Text
-                fontSize="2xl"
-                mb={4}
-                textAlign={{ base: "center", md: "left" }}
-                fontWeight={"bold"}
-                textColor={"blackAlpha.700"}
-              >
-                Price: {priceToMint}
-              </Text>
-            )}
-            <Text
-              mb={4}
-              textAlign={{ base: "center", md: "left" }}
-              fontWeight={"bold"}
-            >
-              {contractMetadata.data?.description}
-            </Text>
-            <Flex
-              direction={{ base: "column", md: "column" }}
-              align={{ base: "center", md: "flex-start" }}
-              justify={{ base: "center", md: "flex-start" }}
-              textColor={"Black"}
-            >
-              <Box textColor={"Black"}>
-                <Stack
-                  direction={{ base: "column", md: "row" }}
-                  spacing={4}
-                  mt={4}
-                >
-                  <Button
-                    as={Web3Button}
-                    color="Black"
-                    size="lg"
-                    contractAddress={contractQuery.contract?.getAddress() || ""}
-                    action={(cntr: {
-                      erc1155: { claim: (arg0: any, arg1: number) => any };
-                    }) => cntr.erc1155.claim(0, quantity)}
-                    isDisabled={!canClaim || buttonLoading}
-                    onError={(err) => {
-                      handleError();
-                    }}
-                    onSuccess={() => {
-                      handleSuccess();
-                    }}
-                  >
-                    {buttonLoading ? <Text>Loading</Text> : buttonText}
-                  </Button>
-                  <Button color="Black" size="lg">
-                    {numberClaimed} / 3600
-                  </Button>
-                </Stack>
-              </Box>
-              <Box mt={{ base: 2, md: 4 }}>
-                <ButtonGroup>
-                  <Button
-                    color="Black"
-                    size="lg"
-                    onClick={() => {
-                      const value = quantity - 1;
-                      if (value > maxClaimable) {
-                        setQuantity(maxClaimable);
-                      } else if (value < 1) {
-                        setQuantity(1);
-                      } else {
-                        setQuantity(value);
-                      }
-                    }}
-                    disabled={isSoldOut || quantity - 1 < 1}
-                  >
-                    <FaMinus />
-                  </Button>
+            <div className={styles.imageSide}>
+              {/* Image Preview of NFTs */}
+              <img
+                className={styles.image}
+                src={contractMetadata?.image}
+                alt={`${contractMetadata?.name} preview image`}
+              />
 
-                  <Button color="Black" size="lg">
-                    {quantity}
-                  </Button>
+              {/* Amount claimed so far */}
+              <div className={styles.mintCompletionArea}>
+                <div className={styles.mintAreaLeft}>
+                  <p>Total Minted</p>
+                </div>
+                <div className={styles.mintAreaRight}>
+                  {claimedSupply ? (
+                    <p>
+                      <b>{numberClaimed}</b>
+                      {" / "}
+                      {numberTotal || "∞"}
+                    </p>
+                  ) : (
+                    // Show loading state if we're still loading the supply
+                    <p>Loading...</p>
+                  )}
+                </div>
+              </div>
 
-                  <Button
-                    color="Black"
-                    size="lg"
-                    onClick={() => {
-                      const value = quantity + 1;
-                      if (value > maxClaimable) {
-                        setQuantity(maxClaimable);
-                      } else if (value < 1) {
-                        setQuantity(1);
-                      } else {
-                        setQuantity(value);
-                      }
-                    }}
-                    disabled={isSoldOut || quantity + 1 > maxClaimable}
-                  >
-                    <FaPlus />
-                  </Button>
-                </ButtonGroup>
-              </Box>
-            </Flex>
-          </Box>
-        </Box>
-      </Flex>
+              {claimConditions.data?.length === 0 ||
+              claimConditions.data?.every(
+                (cc) => cc.maxClaimableSupply === "0"
+              ) ? (
+                <div>
+                  <h2>
+                    This drop is not ready to be minted yet. (No claim condition
+                    set)
+                  </h2>
+                </div>
+              ) : (
+                <>
+                  <p>Quantity</p>
+                  <div className={styles.quantityContainer}>
+                    <button
+                      className={`${styles.quantityControlButton}`}
+                      onClick={() => setQuantity(quantity - 1)}
+                      disabled={quantity <= 1}
+                    >
+                      -
+                    </button>
 
-      <SimpleGrid h={5} />
+                    <h4>{quantity}</h4>
+
+                    <button
+                      className={`${styles.quantityControlButton}`}
+                      onClick={() => setQuantity(quantity + 1)}
+                      disabled={quantity >= maxClaimable}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className={styles.mintContainer}>
+                    {isSoldOut ? (
+                      <div>
+                        <h2>Sold Out</h2>
+                      </div>
+                    ) : (
+                      <Web3Button
+                        contractAddress={editionDrop?.getAddress() || ""}
+                        action={(cntr) => cntr.erc1155.claim(tokenId, quantity)}
+                        isDisabled={!canClaim || buttonLoading}
+                        onError={(err) => {
+                          console.error(err);
+                          alert("Error claiming NFTs");
+                        }}
+                        onSuccess={() => {
+                          setQuantity(1);
+                          alert("Successfully claimed NFTs");
+                        }}
+                      >
+                        {buttonLoading ? "Loading..." : buttonText}
+                      </Web3Button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      <img
+        src="/logo.png"
+        alt=" Logo"
+        width={135}
+        className={styles.buttonGapTop}
+      />
     </div>
   );
 }
