@@ -241,7 +241,7 @@ export default function WishMint() {
                     <p>
                       <b>{numberClaimed}</b>
                       {" / "}
-                      {numberTotal || "∞"}
+                      3600
                     </p>
                   ) : (
                     // Show loading state if we're still loading the supply
