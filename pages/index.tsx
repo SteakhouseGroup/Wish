@@ -69,9 +69,8 @@ const Home: NextPage = () => {
                   </Text>
                   <Text maxW={600}>
                     Make your dreams come true with the Wish Lamps NFT Mint.{" "}
-                    <br /> Presale opens 7PM EST July 15th <br /> Public mint
-                    starts 7pm EST July 18th <br /> Presale = 125 CRO / Public =
-                    250 CRO
+                    <br /> Public mint
+                    started 7pm EST July 18th <br /> Mint price = 250 CRO
                   </Text>
                 </VStack>
               </Box>
