@@ -90,7 +90,7 @@ useEffect(() => {
           >
               <Text
                 textAlign="center"
-                color="white"
+                color="black"
                 fontWeight="bold"
                 fontSize={{ base: "sm", md: "sm" }}
                 position="relative"
