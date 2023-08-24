@@ -45,8 +45,6 @@ function MyApp({ Component, pageProps }: AppProps) {
 
         // Array of RPC URLs to use
         rpc: [
-          "https://node.croswap.com/rpc",
-          "https://evm.cronos.org/",
           "https://rpc.vvs.finance/",
           "https://rpc.crodex.app/",
         ],
